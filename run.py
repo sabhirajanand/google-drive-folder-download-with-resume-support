@@ -1,8 +1,8 @@
 from __future__ import print_function
 import io
-
 import sys
 import os.path
+import os
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -77,7 +77,7 @@ def gDriveDownloadfile(fileid,filename,gdservice,tempfile_stream=None):
     return done
         
 
-def main():
+def main(folder_id):
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -98,11 +98,11 @@ def main():
 
     try:
         service = build('drive', 'v3', credentials=creds)
-        folder_id = input("Enter folder id : ")
         folder_name = "Default"
-        query = f"parents = '{folder_id}'"
+        query = f"parents = '{folder_id}' and mimeType != 'application/vnd.google-apps.folder'"
         try:
             folder_name = service.files().get(fileId=folder_id).execute()['name']
+            folder_name = folder_name[0:55]
             print("Downloading files from folder: ",folder_name)
             print("----------------------------------------------------------------------------------------------")
             if(not os.path.isdir(folder_name)):
@@ -115,13 +115,23 @@ def main():
         results = service.files().list(pageSize = 1000,supportsAllDrives=True, includeItemsFromAllDrives=True, q=query, orderBy='name').execute()
         
         items = results.get('files', [])
+        
         if not items:
             print('No files found.')
             return
+        else:
+            print(len(items), "files found.")
 
         for item in items:
-            print(u'{0} ({1})'.format(item['name'], item['id']))
-            newfile = folder_name+ "//" +item['name']
+            print(u'{0} ({1})'.format(item['name'][0:55], item['id']))
+            os.chdir(folder_name)
+            ext=''
+            try:
+                ext = item['name'][item['name'].rindex('.'):]
+            except:
+                pass
+            newfile = (item['name'][0:55]+ext)
+
             if os.path.isfile(newfile):
                 print("Files is already downloaded.")
             else:
@@ -130,16 +140,27 @@ def main():
                     tempFileStream= open(newfile+".temp","ab+")
                 if not gDriveDownloadfile(fileid=item['id'],filename=newfile,gdservice=service,tempfile_stream=tempFileStream):
                     print("File not downloaded completely.")
-                    return
+                    return "00X1"
                 else:
                     os.rename(newfile+".temp",newfile)
                     print("File downloaded sucessfully.")
+            os.chdir("..")
 
-                   
     except HttpError as error:
         # TODO(developer) - Handle errors from drive API.
-        print(f'An error occurred: {error}')
+        print(f'An error occurred: {error}')     
 
 
 if __name__ == '__main__':
-    main()
+    folder_id="none"
+    if len(sys.argv)>1:
+        folder_id=sys.argv[1]
+    else:
+        folder_id = input("Enter folder id : ")
+
+    if main(folder_id)=="00X1":
+        print("Retrying after 2 minutes..............................................")
+        time.sleep(60*2)
+        os.chdir("..")
+        os.system('python run.py "'+folder_id+'"')
+        os.system("pause")
