@@ -1,6 +1,6 @@
 from __future__ import print_function
 import io
-from msilib.schema import Error
+
 import sys
 import os.path
 from google.auth.transport.requests import Request
@@ -108,7 +108,7 @@ def main():
             if(not os.path.isdir(folder_name)):
                 os.mkdir(folder_name)
 
-        except Error as e:
+        except:
             print("Error with code: FNFOGNE")
             return 
 
